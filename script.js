@@ -147,10 +147,11 @@ async function handleSubscribe() {
         showLoading();
         
         // Stripe Checkoutセッションを作成
-        const response = await fetch('/api/create-checkout-session', {
+        const response = await fetch(`${SUPABASE_URL}/functions/v1/create-checkout-session`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
+                'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
             },
             body: JSON.stringify({
                 userId: currentUser.id,
@@ -191,7 +192,7 @@ async function handleManageSubscription() {
         }
         
         // カスタマーポータルセッションを作成
-        const response = await fetch('/api/create-customer-portal', {
+        const response = await fetch(`${SUPABASE_URL}/functions/v1/create-customer-portal`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -232,7 +233,7 @@ async function handleCancelSubscription() {
         }
         
         // サブスクリプションをキャンセル
-        const response = await fetch('/api/cancel-subscription', {
+        const response = await fetch(`${SUPABASE_URL}/functions/v1/cancel-subscription`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -328,6 +329,4 @@ function checkUrlParams() {
 }
 
 // URLパラメータをチェック
-
 checkUrlParams();
-
