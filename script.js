@@ -156,7 +156,7 @@ async function handleSubscribe() {
             body: JSON.stringify({
                 userId: currentUser.id,
                 email: currentUser.email,
-                priceId: 'price_XXXXXXXXXX' // 実際のPrice IDに置き換え
+                priceId: 'price_1RuZcC4EFW7uFJL1g3akE5ix' // 実際のPrice IDに置き換え
             })
         });
         
@@ -330,3 +330,4 @@ function checkUrlParams() {
 
 // URLパラメータをチェック
 checkUrlParams();
+
