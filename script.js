@@ -13,7 +13,7 @@ console.log('STRIPE_PUBLISHABLE_KEY:', STRIPE_PUBLISHABLE_KEY ? 'Set' : 'Not set
 let supabase, stripe;
 
 try {
-    supabase = supabaseUmd.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
     console.log('Supabase client initialized successfully');
 } catch (error) {
     console.error('Supabase initialization error:', error);
@@ -445,6 +445,7 @@ function addTestClickEvents() {
 // DOMロード後にテストイベントを追加（一時的）
 // 実際の認証が動作することを確認したら、この行は削除してください
 // addTestClickEvents();
+
 
 
 
