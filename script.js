@@ -1,5 +1,5 @@
 // 設定 - 実際の値に置き換えてください
-const SUPABASE_URL = 'https://mwfedumfttaieuyxjwkd.supabase.co';
+const SUPABASE_URL = 'https://mwfedumfttaieuyxjwkd.supabase.co/';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im13ZmVkdW1mdHRhaWV1eXhqd2tkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTQ4MjQ4NTQsImV4cCI6MjA3MDQwMDg1NH0.LttuBoNzgqcD3Q6fawpIovkMmeMaHZatMFoSkMAWaGI';
 //const SUPABASE_ANON_KEY='sb_publishable_mHfI4BMA1xwTb91ey8WCew_nxgOXs96';
 const STRIPE_PUBLISHABLE_KEY = 'pk_test_51R27Cr4EFW7uFJL1PrNOqs228JHAtvFOohV0oJBNwSPBRoHWKcYtLdjW4Xi10iYwrj3Z9gH3OjgXCDqxI7n20Rk4000u1Teb5t';
@@ -445,5 +445,6 @@ function addTestClickEvents() {
 // DOMロード後にテストイベントを追加（一時的）
 // 実際の認証が動作することを確認したら、この行は削除してください
 // addTestClickEvents();
+
 
 
