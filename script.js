@@ -1,7 +1,7 @@
 // 設定 - 実際の値に置き換えてください
-const SUPABASE_URL = 'YOUR_SUPABASE_URL';
-const SUPABASE_ANON_KEY = 'YOUR_SUPABASE_ANON_KEY';
-const STRIPE_PUBLISHABLE_KEY = 'YOUR_STRIPE_PUBLISHABLE_KEY';
+const SUPABASE_URL = 'https://mwfedumfttaieuyxjwkd.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im13ZmVkdW1mdHRhaWV1eXhqd2tkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTQ4MjQ4NTQsImV4cCI6MjA3MDQwMDg1NH0.LttuBoNzgqcD3Q6fawpIovkMmeMaHZatMFoSkMAWaGI';
+const STRIPE_PUBLISHABLE_KEY = 'sb_publishable_mHfI4BMA1xwTb91ey8WCew_nxgOXs96';
 
 // Supabaseクライアント初期化
 const supabase = supabaseUmd.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
@@ -328,4 +328,5 @@ function checkUrlParams() {
 }
 
 // URLパラメータをチェック
+
 checkUrlParams();
