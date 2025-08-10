@@ -3,11 +3,30 @@ const SUPABASE_URL = 'https://mwfedumfttaieuyxjwkd.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im13ZmVkdW1mdHRhaWV1eXhqd2tkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTQ4MjQ4NTQsImV4cCI6MjA3MDQwMDg1NH0.LttuBoNzgqcD3Q6fawpIovkMmeMaHZatMFoSkMAWaGI';
 const STRIPE_PUBLISHABLE_KEY = 'pk_test_51R27Cr4EFW7uFJL1PrNOqs228JHAtvFOohV0oJBNwSPBRoHWKcYtLdjW4Xi10iYwrj3Z9gH3OjgXCDqxI7n20Rk4000u1Teb5t';
 
+// デバッグ用：設定値を確認
+console.log('SUPABASE_URL:', SUPABASE_URL);
+console.log('SUPABASE_ANON_KEY:', SUPABASE_ANON_KEY ? 'Set' : 'Not set');
+console.log('STRIPE_PUBLISHABLE_KEY:', STRIPE_PUBLISHABLE_KEY ? 'Set' : 'Not set');
+
 // Supabaseクライアント初期化
-const supabase = supabaseUmd.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+let supabase, stripe;
+
+try {
+    supabase = supabaseUmd.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    console.log('Supabase client initialized successfully');
+} catch (error) {
+    console.error('Supabase initialization error:', error);
+    alert('Supabaseの初期化に失敗しました。設定を確認してください。');
+}
 
 // Stripe初期化
-const stripe = Stripe(STRIPE_PUBLISHABLE_KEY);
+try {
+    stripe = Stripe(STRIPE_PUBLISHABLE_KEY);
+    console.log('Stripe initialized successfully');
+} catch (error) {
+    console.error('Stripe initialization error:', error);
+    alert('Stripeの初期化に失敗しました。設定を確認してください。');
+}
 
 // DOM要素
 const elements = {
@@ -32,15 +51,39 @@ let userSubscription = null;
 
 // 初期化
 document.addEventListener('DOMContentLoaded', async () => {
+    console.log('DOM loaded, starting initialization...');
+    
+    // 要素の存在確認
+    Object.keys(elements).forEach(key => {
+        if (elements[key]) {
+            console.log(`✓ ${key} element found`);
+        } else {
+            console.error(`✗ ${key} element not found`);
+        }
+    });
+    
     // ローディング表示
     showLoading();
     
-    // 認証状態の確認
-    const { data: { session } } = await supabase.auth.getSession();
-    if (session) {
-        currentUser = session.user;
-        await handleUserLogin();
-    } else {
+    try {
+        // 認証状態の確認
+        console.log('Checking auth session...');
+        const { data: { session }, error } = await supabase.auth.getSession();
+        
+        if (error) {
+            console.error('Session check error:', error);
+        }
+        
+        if (session) {
+            console.log('User is logged in:', session.user.email);
+            currentUser = session.user;
+            await handleUserLogin();
+        } else {
+            console.log('User is not logged in');
+            showLandingPage();
+        }
+    } catch (error) {
+        console.error('Initialization error:', error);
         showLandingPage();
     }
     
@@ -51,6 +94,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     
     // 認証状態の変更を監視
     supabase.auth.onAuthStateChange(async (event, session) => {
+        console.log('Auth state changed:', event, session?.user?.email);
+        
         if (event === 'SIGNED_IN' && session) {
             currentUser = session.user;
             await handleUserLogin();
@@ -60,35 +105,82 @@ document.addEventListener('DOMContentLoaded', async () => {
             showLandingPage();
         }
     });
+    
+    console.log('Initialization complete');
 });
 
 // イベントリスナーの設定
 function setupEventListeners() {
-    elements.loginBtn.addEventListener('click', handleGoogleLogin);
-    elements.logoutBtn.addEventListener('click', handleLogout);
-    elements.getStartedBtn.addEventListener('click', handleGoogleLogin);
-    elements.subscribeBtn.addEventListener('click', handleSubscribe);
-    elements.manageSubscriptionBtn.addEventListener('click', handleManageSubscription);
-    elements.cancelSubscriptionBtn.addEventListener('click', handleCancelSubscription);
+    console.log('Setting up event listeners...');
+    
+    if (elements.loginBtn) {
+        elements.loginBtn.addEventListener('click', handleGoogleLogin);
+        console.log('Login button listener added');
+    } else {
+        console.error('Login button not found');
+    }
+    
+    if (elements.logoutBtn) {
+        elements.logoutBtn.addEventListener('click', handleLogout);
+        console.log('Logout button listener added');
+    } else {
+        console.error('Logout button not found');
+    }
+    
+    if (elements.getStartedBtn) {
+        elements.getStartedBtn.addEventListener('click', handleGoogleLogin);
+        console.log('Get started button listener added');
+    } else {
+        console.error('Get started button not found');
+    }
+    
+    if (elements.subscribeBtn) {
+        elements.subscribeBtn.addEventListener('click', handleSubscribe);
+        console.log('Subscribe button listener added');
+    }
+    
+    if (elements.manageSubscriptionBtn) {
+        elements.manageSubscriptionBtn.addEventListener('click', handleManageSubscription);
+        console.log('Manage subscription button listener added');
+    }
+    
+    if (elements.cancelSubscriptionBtn) {
+        elements.cancelSubscriptionBtn.addEventListener('click', handleCancelSubscription);
+        console.log('Cancel subscription button listener added');
+    }
 }
 
 // Google認証
 async function handleGoogleLogin() {
+    console.log('Google login button clicked');
+    
+    if (!supabase) {
+        alert('Supabaseが初期化されていません。');
+        return;
+    }
+    
     try {
         showLoading();
-        const { error } = await supabase.auth.signInWithOAuth({
+        console.log('Starting Google OAuth...');
+        
+        const { data, error } = await supabase.auth.signInWithOAuth({
             provider: 'google',
             options: {
-                redirectTo: window.location.origin
+                redirectTo: `${window.location.origin}${window.location.pathname}`
             }
         });
+        
+        console.log('OAuth response:', { data, error });
         
         if (error) {
             throw error;
         }
+        
+        // OAuthの場合、リダイレクトが発生するのでここでローディングを隠す必要はない
+        
     } catch (error) {
         console.error('ログインエラー:', error);
-        alert('ログインに失敗しました。もう一度お試しください。');
+        alert(`ログインに失敗しました: ${error.message}`);
         hideLoading();
     }
 }
@@ -328,6 +420,27 @@ function checkUrlParams() {
     }
 }
 
-// URLパラメータをチェック
-checkUrlParams();
+// テスト用の簡単なクリックイベント（デバッグ用）
+function addTestClickEvents() {
+    // ログインボタンのテスト
+    const loginBtn = document.getElementById('loginBtn');
+    if (loginBtn) {
+        loginBtn.onclick = function() {
+            console.log('Login button clicked directly');
+            alert('ログインボタンが押されました！設定を確認してからGoogle認証を有効にします。');
+        };
+    }
+    
+    // 始めるボタンのテスト
+    const getStartedBtn = document.getElementById('getStartedBtn');
+    if (getStartedBtn) {
+        getStartedBtn.onclick = function() {
+            console.log('Get started button clicked directly');
+            alert('始めるボタンが押されました！設定を確認してからGoogle認証を有効にします。');
+        };
+    }
+}
 
+// DOMロード後にテストイベントを追加（一時的）
+// 実際の認証が動作することを確認したら、この行は削除してください
+// addTestClickEvents();
