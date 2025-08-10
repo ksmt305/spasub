@@ -1,0 +1,331 @@
+// 設定 - 実際の値に置き換えてください
+const SUPABASE_URL = 'YOUR_SUPABASE_URL';
+const SUPABASE_ANON_KEY = 'YOUR_SUPABASE_ANON_KEY';
+const STRIPE_PUBLISHABLE_KEY = 'YOUR_STRIPE_PUBLISHABLE_KEY';
+
+// Supabaseクライアント初期化
+const supabase = supabaseUmd.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+// Stripe初期化
+const stripe = Stripe(STRIPE_PUBLISHABLE_KEY);
+
+// DOM要素
+const elements = {
+    loginBtn: document.getElementById('loginBtn'),
+    logoutBtn: document.getElementById('logoutBtn'),
+    getStartedBtn: document.getElementById('getStartedBtn'),
+    landingSection: document.getElementById('landingSection'),
+    dashboardSection: document.getElementById('dashboardSection'),
+    userEmail: document.getElementById('userEmail'),
+    subscriptionStatus: document.getElementById('subscriptionStatus'),
+    subscribeSection: document.getElementById('subscribeSection'),
+    subscribedSection: document.getElementById('subscribedSection'),
+    subscribeBtn: document.getElementById('subscribeBtn'),
+    manageSubscriptionBtn: document.getElementById('manageSubscriptionBtn'),
+    cancelSubscriptionBtn: document.getElementById('cancelSubscriptionBtn'),
+    loading: document.getElementById('loading')
+};
+
+// 現在のユーザー情報
+let currentUser = null;
+let userSubscription = null;
+
+// 初期化
+document.addEventListener('DOMContentLoaded', async () => {
+    // ローディング表示
+    showLoading();
+    
+    // 認証状態の確認
+    const { data: { session } } = await supabase.auth.getSession();
+    if (session) {
+        currentUser = session.user;
+        await handleUserLogin();
+    } else {
+        showLandingPage();
+    }
+    
+    hideLoading();
+    
+    // イベントリスナーの設定
+    setupEventListeners();
+    
+    // 認証状態の変更を監視
+    supabase.auth.onAuthStateChange(async (event, session) => {
+        if (event === 'SIGNED_IN' && session) {
+            currentUser = session.user;
+            await handleUserLogin();
+        } else if (event === 'SIGNED_OUT') {
+            currentUser = null;
+            userSubscription = null;
+            showLandingPage();
+        }
+    });
+});
+
+// イベントリスナーの設定
+function setupEventListeners() {
+    elements.loginBtn.addEventListener('click', handleGoogleLogin);
+    elements.logoutBtn.addEventListener('click', handleLogout);
+    elements.getStartedBtn.addEventListener('click', handleGoogleLogin);
+    elements.subscribeBtn.addEventListener('click', handleSubscribe);
+    elements.manageSubscriptionBtn.addEventListener('click', handleManageSubscription);
+    elements.cancelSubscriptionBtn.addEventListener('click', handleCancelSubscription);
+}
+
+// Google認証
+async function handleGoogleLogin() {
+    try {
+        showLoading();
+        const { error } = await supabase.auth.signInWithOAuth({
+            provider: 'google',
+            options: {
+                redirectTo: window.location.origin
+            }
+        });
+        
+        if (error) {
+            throw error;
+        }
+    } catch (error) {
+        console.error('ログインエラー:', error);
+        alert('ログインに失敗しました。もう一度お試しください。');
+        hideLoading();
+    }
+}
+
+// ログアウト
+async function handleLogout() {
+    try {
+        showLoading();
+        const { error } = await supabase.auth.signOut();
+        if (error) {
+            throw error;
+        }
+    } catch (error) {
+        console.error('ログアウトエラー:', error);
+        alert('ログアウトに失敗しました。');
+    }
+    hideLoading();
+}
+
+// ユーザーログイン処理
+async function handleUserLogin() {
+    try {
+        // サブスクリプション状態を取得
+        await fetchUserSubscription();
+        showDashboard();
+    } catch (error) {
+        console.error('ユーザー情報取得エラー:', error);
+        alert('ユーザー情報の取得に失敗しました。');
+    }
+}
+
+// サブスクリプション状態を取得
+async function fetchUserSubscription() {
+    try {
+        const { data, error } = await supabase
+            .from('subscriptions')
+            .select('*')
+            .eq('user_id', currentUser.id)
+            .eq('status', 'active')
+            .single();
+        
+        if (error && error.code !== 'PGRST116') { // No rows returned
+            throw error;
+        }
+        
+        userSubscription = data;
+    } catch (error) {
+        console.error('サブスクリプション取得エラー:', error);
+        userSubscription = null;
+    }
+}
+
+// サブスクリプション開始
+async function handleSubscribe() {
+    try {
+        showLoading();
+        
+        // Stripe Checkoutセッションを作成
+        const response = await fetch('/api/create-checkout-session', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                userId: currentUser.id,
+                email: currentUser.email,
+                priceId: 'price_XXXXXXXXXX' // 実際のPrice IDに置き換え
+            })
+        });
+        
+        if (!response.ok) {
+            throw new Error('チェックアウトセッションの作成に失敗しました');
+        }
+        
+        const { sessionId } = await response.json();
+        
+        // Stripe Checkoutにリダイレクト
+        const { error } = await stripe.redirectToCheckout({
+            sessionId: sessionId
+        });
+        
+        if (error) {
+            throw error;
+        }
+        
+    } catch (error) {
+        console.error('サブスクリプションエラー:', error);
+        alert('サブスクリプションの開始に失敗しました。もう一度お試しください。');
+        hideLoading();
+    }
+}
+
+// サブスクリプション管理
+async function handleManageSubscription() {
+    try {
+        showLoading();
+        
+        if (!userSubscription || !userSubscription.stripe_customer_id) {
+            throw new Error('サブスクリプション情報が見つかりません');
+        }
+        
+        // カスタマーポータルセッションを作成
+        const response = await fetch('/api/create-customer-portal', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                customerId: userSubscription.stripe_customer_id,
+                returnUrl: window.location.origin
+            })
+        });
+        
+        if (!response.ok) {
+            throw new Error('カスタマーポータルの作成に失敗しました');
+        }
+        
+        const { url } = await response.json();
+        
+        // カスタマーポータルにリダイレクト
+        window.location.href = url;
+        
+    } catch (error) {
+        console.error('サブスクリプション管理エラー:', error);
+        alert('サブスクリプション管理画面の表示に失敗しました。');
+        hideLoading();
+    }
+}
+
+// サブスクリプション解約
+async function handleCancelSubscription() {
+    if (!confirm('本当にサブスクリプションを解約しますか？')) {
+        return;
+    }
+    
+    try {
+        showLoading();
+        
+        if (!userSubscription || !userSubscription.stripe_subscription_id) {
+            throw new Error('サブスクリプション情報が見つかりません');
+        }
+        
+        // サブスクリプションをキャンセル
+        const response = await fetch('/api/cancel-subscription', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                subscriptionId: userSubscription.stripe_subscription_id
+            })
+        });
+        
+        if (!response.ok) {
+            throw new Error('サブスクリプションの解約に失敗しました');
+        }
+        
+        // サブスクリプション状態を更新
+        await fetchUserSubscription();
+        showDashboard();
+        
+        alert('サブスクリプションが解約されました。');
+        
+    } catch (error) {
+        console.error('サブスクリプション解約エラー:', error);
+        alert('サブスクリプションの解約に失敗しました。');
+    }
+    
+    hideLoading();
+}
+
+// ランディングページを表示
+function showLandingPage() {
+    elements.landingSection.style.display = 'block';
+    elements.dashboardSection.style.display = 'none';
+    elements.loginBtn.style.display = 'block';
+    elements.logoutBtn.style.display = 'none';
+}
+
+// ダッシュボードを表示
+function showDashboard() {
+    elements.landingSection.style.display = 'none';
+    elements.dashboardSection.style.display = 'block';
+    elements.loginBtn.style.display = 'none';
+    elements.logoutBtn.style.display = 'block';
+    
+    // ユーザー情報を表示
+    elements.userEmail.textContent = currentUser.email;
+    
+    // サブスクリプション状態を表示
+    if (userSubscription) {
+        elements.subscriptionStatus.textContent = 'サブスクリプション状態: 有効';
+        elements.subscriptionStatus.className = 'subscription-status active';
+        elements.subscribeSection.style.display = 'none';
+        elements.subscribedSection.style.display = 'block';
+    } else {
+        elements.subscriptionStatus.textContent = 'サブスクリプション状態: 未契約';
+        elements.subscriptionStatus.className = 'subscription-status inactive';
+        elements.subscribeSection.style.display = 'block';
+        elements.subscribedSection.style.display = 'none';
+    }
+}
+
+// ローディング表示
+function showLoading() {
+    elements.loading.style.display = 'flex';
+}
+
+// ローディング非表示
+function hideLoading() {
+    elements.loading.style.display = 'none';
+}
+
+// URLパラメータをチェック（Stripe Checkoutからのリダイレクト）
+function checkUrlParams() {
+    const urlParams = new URLSearchParams(window.location.search);
+    
+    if (urlParams.get('success')) {
+        // 成功時の処理
+        setTimeout(async () => {
+            await fetchUserSubscription();
+            showDashboard();
+            alert('サブスクリプションが正常に開始されました！');
+        }, 1000);
+        
+        // URLからパラメータを削除
+        window.history.replaceState({}, document.title, window.location.pathname);
+    }
+    
+    if (urlParams.get('canceled')) {
+        // キャンセル時の処理
+        alert('サブスクリプションの開始がキャンセルされました。');
+        
+        // URLからパラメータを削除
+        window.history.replaceState({}, document.title, window.location.pathname);
+    }
+}
+
+// URLパラメータをチェック
+checkUrlParams();

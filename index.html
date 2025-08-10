@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>サブスクリプションサービス</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://js.stripe.com/v3/"></script>
+    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+</head>
+<body>
+    <header class="header">
+        <div class="container">
+            <h1 class="logo">MySubscription</h1>
+            <nav class="nav">
+                <button id="loginBtn" class="btn btn-primary">ログイン</button>
+                <button id="logoutBtn" class="btn btn-secondary" style="display: none;">ログアウト</button>
+            </nav>
+        </div>
+    </header>
+
+    <main class="main">
+        <!-- 未ログイン時のセクション -->
+        <section id="landingSection" class="hero">
+            <div class="container">
+                <h2 class="hero-title">プレミアムサービスで<br>もっと便利に</h2>
+                <p class="hero-description">
+                    月額プランで特別な機能を利用できます。<br>
+                    いつでもキャンセル可能です。
+                </p>
+                <button id="getStartedBtn" class="btn btn-cta">始める</button>
+            </div>
+        </section>
+
+        <!-- ログイン後のダッシュボード -->
+        <section id="dashboardSection" class="dashboard" style="display: none;">
+            <div class="container">
+                <div class="user-info">
+                    <h2>ダッシュボード</h2>
+                    <p id="userEmail" class="user-email"></p>
+                    <p id="subscriptionStatus" class="subscription-status">サブスクリプション状態: 未契約</p>
+                </div>
+
+                <!-- サブスクリプション未契約時 -->
+                <div id="subscribeSection" class="subscription-section">
+                    <div class="pricing-card">
+                        <h3>プレミアムプラン</h3>
+                        <div class="price">¥980<span>/月</span></div>
+                        <ul class="features">
+                            <li>無制限アクセス</li>
+                            <li>優先サポート</li>
+                            <li>高度な機能</li>
+                            <li>広告非表示</li>
+                        </ul>
+                        <button id="subscribeBtn" class="btn btn-cta">サブスクリプション開始</button>
+                    </div>
+                </div>
+
+                <!-- サブスクリプション契約済み時 -->
+                <div id="subscribedSection" class="subscribed-section" style="display: none;">
+                    <div class="premium-content">
+                        <h3>🎉 プレミアム機能をお楽しみください</h3>
+                        <div class="premium-features">
+                            <div class="feature-card">
+                                <h4>特別コンテンツ</h4>
+                                <p>プレミアム会員限定のコンテンツにアクセスできます。</p>
+                            </div>
+                            <div class="feature-card">
+                                <h4>高速処理</h4>
+                                <p>処理速度が通常の5倍になります。</p>
+                            </div>
+                            <div class="feature-card">
+                                <h4>優先サポート</h4>
+                                <p>24時間以内に専門スタッフが対応します。</p>
+                            </div>
+                        </div>
+                        <button id="manageSubscriptionBtn" class="btn btn-secondary">サブスクリプション管理</button>
+                        <button id="cancelSubscriptionBtn" class="btn btn-danger">サブスクリプション解約</button>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2025 MySubscription. All rights reserved.</p>
+        </div>
+    </footer>
+
+    <!-- ローディング表示 -->
+    <div id="loading" class="loading" style="display: none;">
+        <div class="loading-spinner"></div>
+        <p>処理中...</p>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
