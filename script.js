@@ -167,7 +167,8 @@ async function handleGoogleLogin() {
         const { data, error } = await supabase.auth.signInWithOAuth({
             provider: 'google',
             options: {
-                redirectTo: `${window.location.origin}${window.location.pathname}`
+                //redirectTo: `${window.location.origin}${window.location.pathname}`
+                redirectTo: `https://ksmt305.github.io/spasub/`
             }
         });
         
@@ -445,6 +446,7 @@ function addTestClickEvents() {
 // DOMロード後にテストイベントを追加（一時的）
 // 実際の認証が動作することを確認したら、この行は削除してください
 // addTestClickEvents();
+
 
 
 
