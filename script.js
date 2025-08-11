@@ -175,32 +175,211 @@ async function handleGoogleLogin() {
     }
 }
 
-// ログアウト
+// ログアウト処理を改善
 async function handleLogout() {
+    console.log('ログアウト処理開始');
+    
     try {
         showLoading();
-        const { error } = await supabase.auth.signOut();
+        
+        // タイムアウトを設定（10秒）
+        const timeoutPromise = new Promise((_, reject) => {
+            setTimeout(() => reject(new Error('ログアウト処理がタイムアウトしました')), 10000);
+        });
+        
+        // ログアウト処理
+        const logoutPromise = supabase.auth.signOut();
+        
+        // タイムアウトとログアウト処理のレース
+        const { error } = await Promise.race([logoutPromise, timeoutPromise]);
+        
         if (error) {
             throw error;
         }
+        
+        console.log('ログアウト成功');
+        
     } catch (error) {
         console.error('ログアウトエラー:', error);
-        alert('ログアウトに失敗しました。');
+        
+        // エラーが発生してもクライアントサイドの状態をクリア
+        console.log('強制的にクライアントサイドの状態をクリア');
+        currentUser = null;
+        userSubscription = null;
+        
+        // 手動でランディングページを表示
+        showLandingPage();
+        
+        // エラーメッセージを表示（タイムアウトの場合は別メッセージ）
+        if (error.message.includes('タイムアウト')) {
+            alert('ログアウトに時間がかかっていますが、ローカルの状態はクリアされました。');
+        } else {
+            alert(`ログアウトエラー: ${error.message}`);
+        }
+    } finally {
+        hideLoading();
     }
-    hideLoading();
 }
 
-// ユーザーログイン処理
+// より堅牢な認証状態変更監視
+function setupAuthStateListener() {
+    let authStateChangeTimeout;
+    
+    supabase.auth.onAuthStateChange(async (event, session) => {
+        console.log('Auth state changed:', event, session?.user?.email);
+        
+        // 既存のタイムアウトをクリア
+        if (authStateChangeTimeout) {
+            clearTimeout(authStateChangeTimeout);
+        }
+        
+        // 状態変更の処理にタイムアウトを設定
+        authStateChangeTimeout = setTimeout(async () => {
+            try {
+                if (event === 'SIGNED_IN' && session) {
+                    currentUser = session.user;
+                    await handleUserLogin();
+                } else if (event === 'SIGNED_OUT') {
+                    console.log('認証状態: ログアウト確認');
+                    currentUser = null;
+                    userSubscription = null;
+                    showLandingPage();
+                }
+            } catch (error) {
+                console.error('認証状態変更処理エラー:', error);
+                // エラーが発生してもUIは更新する
+                if (event === 'SIGNED_OUT') {
+                    showLandingPage();
+                }
+            }
+        }, 100); // 100ms後に実行（連続する状態変更をデバウンス）
+    });
+}
+
+// 初期化処理も改善
+document.addEventListener('DOMContentLoaded', async () => {
+    console.log('DOM loaded, starting initialization...');
+
+    // Stripeからのリダイレクトを処理
+    checkUrlParams();
+    
+    // 要素の存在確認
+    Object.keys(elements).forEach(key => {
+        if (elements[key]) {
+            console.log(`✓ ${key} element found`);
+        } else {
+            console.error(`✗ ${key} element not found`);
+        }
+    });
+    
+    // ローディング表示
+    showLoading();
+    
+    try {
+        // 認証状態の確認にタイムアウトを設定
+        const sessionCheckPromise = supabase.auth.getSession();
+        const timeoutPromise = new Promise((_, reject) => {
+            setTimeout(() => reject(new Error('セッションチェックタイムアウト')), 8000);
+        });
+        
+        console.log('Checking auth session...');
+        const { data: { session }, error } = await Promise.race([
+            sessionCheckPromise, 
+            timeoutPromise
+        ]);
+        
+        if (error) {
+            console.error('Session check error:', error);
+            throw error;
+        }
+        
+        if (session) {
+            console.log('User is logged in:', session.user.email);
+            currentUser = session.user;
+            await handleUserLogin();
+        } else {
+            console.log('User is not logged in');
+            showLandingPage();
+        }
+    } catch (error) {
+        console.error('Initialization error:', error);
+        showLandingPage();
+        
+        if (error.message.includes('タイムアウト')) {
+            console.warn('初期化がタイムアウトしました。オフラインまたはネットワークの問題の可能性があります。');
+        }
+    }
+    
+    hideLoading();
+    
+    // イベントリスナーの設定
+    setupEventListeners();
+    
+    // 改善された認証状態監視を開始
+    setupAuthStateListener();
+    
+    console.log('Initialization complete');
+});
+
+// ネットワーク状態をチェックする関数
+function checkNetworkStatus() {
+    if (!navigator.onLine) {
+        console.warn('オフライン状態です');
+        return false;
+    }
+    return true;
+}
+
+// より堅牢なユーザーログイン処理
 async function handleUserLogin() {
     try {
-        // サブスクリプション状態を取得
-        await fetchUserSubscription();
+        if (!checkNetworkStatus()) {
+            throw new Error('インターネット接続を確認してください');
+        }
+        
+        // サブスクリプション取得にタイムアウトを設定
+        const subscriptionPromise = fetchUserSubscription();
+        const timeoutPromise = new Promise((_, reject) => {
+            setTimeout(() => reject(new Error('サブスクリプション取得タイムアウト')), 10000);
+        });
+        
+        await Promise.race([subscriptionPromise, timeoutPromise]);
         showDashboard();
     } catch (error) {
         console.error('ユーザー情報取得エラー:', error);
-        alert('ユーザー情報の取得に失敗しました。');
+        
+        // エラーが発生してもダッシュボードは表示する
+        showDashboard();
+        
+        if (error.message.includes('タイムアウト')) {
+            console.warn('サブスクリプション情報の取得がタイムアウトしました。後で再試行してください。');
+            // ユーザーにエラーを通知するが、アプリの使用は継続可能
+            setTimeout(() => {
+                alert('サブスクリプション情報の読み込みに時間がかかっています。ページを再読み込みしてください。');
+            }, 1000);
+        } else {
+            alert('ユーザー情報の取得に失敗しました。');
+        }
     }
 }
+
+// 緊急ログアウト関数（デバッグ用）
+window.emergencyLogout = function() {
+    console.log('緊急ログアウト実行');
+    currentUser = null;
+    userSubscription = null;
+    showLandingPage();
+    
+    // ローカルストレージやセッションストレージもクリア（もしあれば）
+    try {
+        localStorage.clear();
+        sessionStorage.clear();
+    } catch (e) {
+        console.log('ストレージクリアをスキップ（サポートされていません）');
+    }
+    
+    console.log('緊急ログアウト完了');
+};
 
 // 改良されたサブスクリプション状態取得
 async function fetchUserSubscription() {
