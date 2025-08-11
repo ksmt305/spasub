@@ -220,21 +220,22 @@ async function handleUserLogin() {
 // サブスクリプション状態を取得
 async function fetchUserSubscription() {
     try {
-        // ステータスが 'active' または 'trialing' のサブスクリプションを検索
+        // ステータスが 'active' または 'trialing' の最新のサブスクリプションを1件取得
         const { data, error } = await supabase
             .from('subscriptions')
             .select('*')
             .in('status', ['active', 'trialing']) // 'active' と 'trialing' を許容
             .eq('user_id', currentUser.id)
-            .limit(1) // 念のため1件に制限
-            .single(); // 1件または0件を期待
+            .order('created_at', { ascending: false }) // 最新のものを優先
+            .limit(1);
 
-        if (error && error.code !== 'PGRST116') { // PGRST116は行が見つからないエラーなので無視
+        if (error) {
             throw error;
         }
 
-        userSubscription = data;
-        console.log('Fetched user subscription:', userSubscription);
+        // dataは配列。空でなければ最初の要素（最新のサブスク）を使用
+        userSubscription = data && data.length > 0 ? data[0] : null;
+        console.log('Fetched user subscription (latest):', userSubscription);
 
     } catch (error) {
         console.error('サブスクリプション取得エラー:', error);
