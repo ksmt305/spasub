@@ -217,18 +217,22 @@ async function handleUserLogin() {
 // サブスクリプション状態を取得
 async function fetchUserSubscription() {
     try {
+        // ステータスが 'active' または 'trialing' のサブスクリプションを検索
         const { data, error } = await supabase
             .from('subscriptions')
             .select('*')
+            .in('status', ['active', 'trialing']) // 'active' と 'trialing' を許容
             .eq('user_id', currentUser.id)
-            .eq('status', 'active')
-            .single();
-        
-        if (error && error.code !== 'PGRST116') { // No rows returned
+            .limit(1) // 念のため1件に制限
+            .single(); // 1件または0件を期待
+
+        if (error && error.code !== 'PGRST116') { // PGRST116は行が見つからないエラーなので無視
             throw error;
         }
-        
+
         userSubscription = data;
+        console.log('Fetched user subscription:', userSubscription);
+
     } catch (error) {
         console.error('サブスクリプション取得エラー:', error);
         userSubscription = null;
