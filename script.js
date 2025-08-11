@@ -531,7 +531,7 @@ async function handleSubscribe() {
     }
 }
 
-// サブスクリプション管理（修正版）
+// サブスクリプション管理
 async function handleManageSubscription() {
     try {
         showLoading();
@@ -540,17 +540,11 @@ async function handleManageSubscription() {
             throw new Error('サブスクリプション情報が見つかりません');
         }
         
-        console.log('カスタマーポータル作成:', userSubscription.stripe_customer_id);
-        
-        const functionUrl = `${SUPABASE_URL.replace(/\/$/, '')}/functions/v1/create-customer-portal`;
-        
         // カスタマーポータルセッションを作成
-        const response = await fetch(functionUrl, {
+        const response = await fetch(`${SUPABASE_URL}/functions/v1/create-customer-portal`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
-                'apikey': SUPABASE_ANON_KEY
             },
             body: JSON.stringify({
                 customerId: userSubscription.stripe_customer_id,
@@ -559,8 +553,7 @@ async function handleManageSubscription() {
         });
         
         if (!response.ok) {
-            const errorText = await response.text();
-            throw new Error(`カスタマーポータルの作成に失敗: ${errorText}`);
+            throw new Error('カスタマーポータルの作成に失敗しました');
         }
         
         const { url } = await response.json();
@@ -570,12 +563,12 @@ async function handleManageSubscription() {
         
     } catch (error) {
         console.error('サブスクリプション管理エラー:', error);
-        alert(`サブスクリプション管理画面の表示に失敗しました: ${error.message}`);
+        alert('サブスクリプション管理画面の表示に失敗しました。');
         hideLoading();
     }
 }
 
-// サブスクリプション解約（修正版）
+// サブスクリプション解約
 async function handleCancelSubscription() {
     if (!confirm('本当にサブスクリプションを解約しますか？')) {
         return;
@@ -588,15 +581,11 @@ async function handleCancelSubscription() {
             throw new Error('サブスクリプション情報が見つかりません');
         }
         
-        const functionUrl = `${SUPABASE_URL.replace(/\/$/, '')}/functions/v1/cancel-subscription`;
-        
         // サブスクリプションをキャンセル
-        const response = await fetch(functionUrl, {
+        const response = await fetch(`${SUPABASE_URL}/functions/v1/cancel-subscription`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
-                'apikey': SUPABASE_ANON_KEY
             },
             body: JSON.stringify({
                 subscriptionId: userSubscription.stripe_subscription_id
@@ -604,8 +593,7 @@ async function handleCancelSubscription() {
         });
         
         if (!response.ok) {
-            const errorText = await response.text();
-            throw new Error(`サブスクリプションの解約に失敗: ${errorText}`);
+            throw new Error('サブスクリプションの解約に失敗しました');
         }
         
         // サブスクリプション状態を更新
@@ -616,7 +604,7 @@ async function handleCancelSubscription() {
         
     } catch (error) {
         console.error('サブスクリプション解約エラー:', error);
-        alert(`サブスクリプションの解約に失敗しました: ${error.message}`);
+        alert('サブスクリプションの解約に失敗しました。');
     }
     
     hideLoading();
@@ -630,7 +618,7 @@ function showLandingPage() {
     elements.logoutBtn.style.display = 'none';
 }
 
-// ダッシュボードを表示（改良版）
+// ダッシュボードを表示
 function showDashboard() {
     elements.landingSection.style.display = 'none';
     elements.dashboardSection.style.display = 'block';
@@ -640,108 +628,71 @@ function showDashboard() {
     // ユーザー情報を表示
     elements.userEmail.textContent = currentUser.email;
     
-    // サブスクリプション状態を詳細表示
-    if (userSubscription) {
-        const status = userSubscription.status;
-        let statusText = 'サブスクリプション状態: ';
-        let statusClass = 'subscription-status ';
+    console.log('Showing dashboard with subscription:', userSubscription);
+    
+    // サブスクリプション状態を表示
+    if (userSubscription && ['active', 'trialing', 'past_due'].includes(userSubscription.status)) {
+        const statusText = {
+            'active': '有効',
+            'trialing': 'トライアル中',
+            'past_due': '支払い期限切れ'
+        };
         
-        switch (status) {
-            case 'active':
-                statusText += '有効';
-                statusClass += 'active';
-                break;
-            case 'trialing':
-                statusText += 'トライアル中';
-                statusClass += 'active';
-                break;
-            case 'past_due':
-                statusText += '支払い遅延';
-                statusClass += 'warning';
-                break;
-            case 'canceled':
-                statusText += 'キャンセル済み';
-                statusClass += 'inactive';
-                break;
-            case 'incomplete':
-                statusText += '未完了';
-                statusClass += 'warning';
-                break;
-            case 'incomplete_expired':
-                statusText += '期限切れ';
-                statusClass += 'inactive';
-                break;
-            case 'unpaid':
-                statusText += '未払い';
-                statusClass += 'inactive';
-                break;
-            default:
-                statusText += status || '不明';
-                statusClass += 'inactive';
-        }
+        elements.subscriptionStatus.textContent = `サブスクリプション状態: ${statusText[userSubscription.status]}`;
+        elements.subscriptionStatus.className = 'subscription-status active';
+        elements.subscribeSection.style.display = 'none';
+        elements.subscribedSection.style.display = 'block';
         
-        elements.subscriptionStatus.textContent = statusText;
-        elements.subscriptionStatus.className = statusClass;
-        
-        // アクティブな状態の場合のみサブスク済みとして扱う
-        if (['active', 'trialing'].includes(status)) {
-            elements.subscribeSection.style.display = 'none';
-            elements.subscribedSection.style.display = 'block';
+        // 管理ボタンの表示/非表示
+        if (userSubscription.stripe_customer_id) {
+            elements.manageSubscriptionBtn.style.display = 'inline-block';
         } else {
-            elements.subscribeSection.style.display = 'block';
-            elements.subscribedSection.style.display = 'none';
+            elements.manageSubscriptionBtn.style.display = 'none';
+            console.warn('No stripe_customer_id found, hiding manage button');
         }
         
-        console.log('ダッシュボード表示 - サブスクリプション状態:', status);
+        if (userSubscription.stripe_subscription_id) {
+            elements.cancelSubscriptionBtn.style.display = 'inline-block';
+        } else {
+            elements.cancelSubscriptionBtn.style.display = 'none';
+            console.warn('No stripe_subscription_id found, hiding cancel button');
+        }
+        
     } else {
         elements.subscriptionStatus.textContent = 'サブスクリプション状態: 未契約';
         elements.subscriptionStatus.className = 'subscription-status inactive';
         elements.subscribeSection.style.display = 'block';
         elements.subscribedSection.style.display = 'none';
-        console.log('ダッシュボード表示 - サブスクリプション未契約');
     }
 }
 
 // ローディング表示
 function showLoading() {
-    if (elements.loading) {
-        elements.loading.style.display = 'flex';
-    }
+    elements.loading.style.display = 'flex';
 }
 
 // ローディング非表示
 function hideLoading() {
-    if (elements.loading) {
-        elements.loading.style.display = 'none';
-    }
+    elements.loading.style.display = 'none';
 }
 
-// URLパラメータをチェック（修正版）
+// URLパラメータをチェック（Stripe Checkoutからのリダイレクト）
 function checkUrlParams() {
     const urlParams = new URLSearchParams(window.location.search);
     
     if (urlParams.get('success')) {
-        console.log('Stripe checkout成功のリダイレクト');
-        // 成功時の処理 - 少し遅延を入れてWebhookの処理を待つ
+        // 成功時の処理
         setTimeout(async () => {
-            try {
-                await fetchUserSubscription();
-                if (currentUser) {
-                    showDashboard();
-                }
-                alert('サブスクリプションが正常に開始されました！');
-            } catch (error) {
-                console.error('サブスクリプション状態の更新に失敗:', error);
-                alert('サブスクリプションは開始されましたが、状態の取得に失敗しました。ページを再読み込みしてください。');
-            }
-        }, 2000); // 2秒の遅延
+            await fetchUserSubscription();
+            showDashboard();
+            alert('サブスクリプションが正常に開始されました！');
+        }, 1000);
         
         // URLからパラメータを削除
         window.history.replaceState({}, document.title, window.location.pathname);
     }
     
     if (urlParams.get('canceled')) {
-        console.log('Stripe checkoutキャンセル');
         // キャンセル時の処理
         alert('サブスクリプションの開始がキャンセルされました。');
         
@@ -750,80 +701,27 @@ function checkUrlParams() {
     }
 }
 
-// デバッグ用関数（グローバルに公開）
-window.debugSubscriptionStatus = async function() {
-    console.log('=== サブスクリプション診断開始 ===');
-    
-    if (!currentUser) {
-        console.error('ユーザーがログインしていません');
-        return;
+// テスト用の簡単なクリックイベント（デバッグ用）
+function addTestClickEvents() {
+    // ログインボタンのテスト
+    const loginBtn = document.getElementById('loginBtn');
+    if (loginBtn) {
+        loginBtn.onclick = function() {
+            console.log('Login button clicked directly');
+            alert('ログインボタンが押されました！設定を確認してからGoogle認証を有効にします。');
+        };
     }
     
-    console.log('現在のユーザーID:', currentUser.id);
-    console.log('現在のユーザーemail:', currentUser.email);
-    
-    try {
-        // 1. データベースの全サブスクリプションレコードを確認
-        console.log('--- 全サブスクリプション確認 ---');
-        const { data: allSubs, error: allError } = await supabase
-            .from('subscriptions')
-            .select('*')
-            .eq('user_id', currentUser.id);
-        
-        if (allError) {
-            console.error('全サブスクリプション取得エラー:', allError);
-            console.error('エラーコード:', allError.code);
-            console.error('エラー詳細:', allError.details);
-        } else {
-            console.log('ユーザーの全サブスクリプション:', allSubs);
-            console.log('サブスクリプション件数:', allSubs?.length || 0);
-        }
-        
-        // 2. テーブル構造の確認
-        console.log('--- テーブル構造確認 ---');
-        const { data: tableInfo, error: tableError } = await supabase
-            .from('subscriptions')
-            .select('*')
-            .limit(1);
-        
-        if (!tableError && tableInfo && tableInfo.length > 0) {
-            console.log('テーブルの列:', Object.keys(tableInfo[0]));
-        } else if (tableError) {
-            console.error('テーブル構造確認エラー:', tableError);
-        }
-        
-        // 3. RLS（Row Level Security）の確認
-        console.log('--- RLS設定確認 ---');
-        const { data: userData } = await supabase.auth.getUser();
-        console.log('認証済みユーザー:', userData?.user?.id);
-        
-        // 4. 現在の取得ロジックをテスト
-        console.log('--- 現在のフェッチロジック ---');
-        await fetchUserSubscription();
-        console.log('fetchUserSubscription実行後のuserSubscription:', userSubscription);
-        
-    } catch (error) {
-        console.error('診断中にエラーが発生:', error);
+    // 始めるボタンのテスト
+    const getStartedBtn = document.getElementById('getStartedBtn');
+    if (getStartedBtn) {
+        getStartedBtn.onclick = function() {
+            console.log('Get started button clicked directly');
+            alert('始めるボタンが押されました！設定を確認してからGoogle認証を有効にします。');
+        };
     }
-    
-    console.log('=== サブスクリプション診断終了 ===');
-};
+}
 
-// 手動でサブスクリプション状態を再取得する関数
-window.refreshSubscriptionStatus = async function() {
-    if (!currentUser) {
-        alert('ログインしていません');
-        return;
-    }
-    
-    showLoading();
-    try {
-        await fetchUserSubscription();
-        showDashboard();
-        console.log('サブスクリプション状態を更新しました');
-    } catch (error) {
-        console.error('更新エラー:', error);
-        alert('更新に失敗しました: ' + error.message);
-    }
-    hideLoading();
-};
+// DOMロード後にテストイベントを追加（一時的）
+// 実際の認証が動作することを確認したら、この行は削除してください
+// addTestClickEvents();
