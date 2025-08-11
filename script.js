@@ -53,6 +53,9 @@ let userSubscription = null;
 // 初期化
 document.addEventListener('DOMContentLoaded', async () => {
     console.log('DOM loaded, starting initialization...');
+
+    // Stripeからのリダイレクトを処理
+    checkUrlParams();
     
     // 要素の存在確認
     Object.keys(elements).forEach(key => {
