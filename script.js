@@ -544,7 +544,7 @@ async function handleManageSubscription() {
         const response = await fetch(`${SUPABASE_URL}/functions/v1/create-customer-portal`, {
             method: 'POST',
             headers: {
-                'Content-Type': 'application/json',
+                'Content-Type': 'application/json'
             },
             body: JSON.stringify({
                 customerId: userSubscription.stripe_customer_id,
@@ -553,7 +553,9 @@ async function handleManageSubscription() {
         });
         
         if (!response.ok) {
-            throw new Error('カスタマーポータルの作成に失敗しました');
+            const errorData = await response.json().catch(() => ({}));
+            console.error('API Error:', errorData);
+            throw new Error(errorData.error || 'カスタマーポータルの作成に失敗しました');
         }
         
         const { url } = await response.json();
@@ -725,3 +727,4 @@ function addTestClickEvents() {
 // DOMロード後にテストイベントを追加（一時的）
 // 実際の認証が動作することを確認したら、この行は削除してください
 // addTestClickEvents();
+
